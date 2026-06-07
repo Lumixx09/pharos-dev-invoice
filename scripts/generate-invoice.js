@@ -159,7 +159,38 @@ function autolog(id, invoiceHash, amountCents, dueTs, client, clientWallet) {
   }
 
   const txMatch = (result.stdout || "").match(/transactionHash\s+(0x[a-fA-F0-9]+)/i);
-  const txHash  = txMatch ? txMatch[1] : "(see output above)";
+  const txHash  = txMatch ? txMatch[1] : null;
+  const explorerUrl = txHash ? `https://atlantic.pharosscan.xyz/tx/${txHash}` : "";
+
+  // Write a receipt file alongside the invoice JSON
+  if (txHash) {
+    const receipt = {
+      invoiceId: id,
+      invoiceFile: `${id}.json`,
+      network: {
+        name: "Pharos Atlantic Testnet",
+        chainId: 688689,
+        rpc: rpc,
+        explorer: "https://atlantic.pharosscan.xyz"
+      },
+      contract,
+      dataHash: invoiceHash,
+      onchain: {
+        logInvoice: {
+          txHash,
+          explorerUrl,
+          event: "InvoiceLogged",
+          timestamp: new Date().toISOString()
+        }
+      },
+      finalStatus: "UNPAID",
+      note: "This receipt records onchain proof. Do not edit the invoice JSON — it would invalidate the dataHash."
+    };
+    fs.writeFileSync(
+      path.join(process.cwd(), "invoices", `${id}.receipt.json`),
+      JSON.stringify(receipt, null, 2)
+    );
+  }
 
   console.log(`
 ──────────────────────────────────────────────────────────────
@@ -167,8 +198,9 @@ function autolog(id, invoiceHash, amountCents, dueTs, client, clientWallet) {
 ──────────────────────────────────────────────────────────────
 
   Invoice ID : ${id}
-  Tx Hash    : ${txHash}
-  Explorer   : https://atlantic.pharosscan.xyz/tx/${txHash}
+  Tx Hash    : ${txHash || "(see output above)"}
+  Explorer   : ${explorerUrl}
+  Receipt    : invoices/${id}.receipt.json
 `);
 }
 
